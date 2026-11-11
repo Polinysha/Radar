@@ -99,6 +99,20 @@ td.bad{color:var(--crit);font-weight:700}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted);align-items:center}
 .legend .strip li{min-width:22px;height:18px;line-height:18px;font-size:11px}
 .legend span{display:flex;gap:6px;align-items:center}
+.grp{margin-top:8px;color:var(--muted)}
+.grp:first-child{margin-top:0}
+.noterow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.noterow .note{flex:1 1 320px}
+select{font:500 14px/1 var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:8px 10px;max-width:100%}
+select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pick{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:14px;font-weight:600;min-width:0;max-width:100%}
+.pick select{flex:1 1 220px;min-width:0;width:100%}
+tr.sel td{background:var(--bg)}
+.toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:14.5px;box-shadow:0 6px 24px rgba(0,0,0,.25);z-index:5}
+.toast[hidden]{display:none}
+.toast button{background:transparent;color:inherit;border-color:currentColor}
+.hint{max-width:75ch}
+@media (max-width:560px){.trow .acts,.noterow .acts{width:100%}.trow .acts button,.noterow .acts button{flex:1 1 auto}}
 .empty{padding:22px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:10px}
 .sec{display:flex;flex-direction:column;gap:10px}
 @media (max-width:480px){h1{font-size:21px}.sum b{font-size:19px}}
@@ -118,7 +132,7 @@ td.bad{color:var(--crit);font-weight:700}
 
   <section class="sec">
     <div class="bar">
-      <div class="chips" id="chips" role="group" aria-label="Подразделение"></div>
+      <label class="pick" for="unit">Чьи новички <select id="unit"></select></label>
       <label class="check" for="showall"><input type="checkbox" id="showall"> Показать и тех, у кого всё по плану</label>
     </div>
     <div class="legend" aria-hidden="true">
@@ -129,6 +143,7 @@ td.bad{color:var(--crit);font-weight:700}
       <span><ol class="strip"><li class="today">30</li></ol> сегодня</span>
       <span><ol class="strip"><li>60</li></ol> впереди</span>
     </div>
+    <p class="muted small hint">После встречи нажмите «Записать разговор» и выберите итог. Человек уйдёт из списка, итог останется в его карточке. Ошиблись — нажмите «Отменить» внизу экрана.</p>
     <div class="list" id="list"></div>
   </section>
 
@@ -147,11 +162,14 @@ td.bad{color:var(--crit);font-weight:700}
       <li>Сортировка: сначала сигналы об уходе, затем те, у кого сорвано больше шагов, при равенстве выше тот, кто работает меньше.</li>
       <li>Разговор закрывается итогом: всё в порядке, есть проблема или думает об уходе. Последний итог виден в карточке, сигнал об уходе поднимает человека наверх.</li>
       <li>Оценки вероятности ухода здесь нет намеренно: на ста приёмах в год её не на чем обучить. Правила простые, и руководитель видит причину каждой строки.</li>
-      <li>Дни считаются календарными. Отметки хранятся в этом браузере.</li>
+      <li>Проблему или сигнал об уходе закрывает кнопка в карточке, когда вопрос решён. До этого человек остаётся в списке.</li>
+      <li>Дни считаются календарными. Отметки и выбранное подразделение хранятся в этом браузере.</li>
     </ul>
     <p style="margin-top:12px"><button type="button" id="reset">Сбросить мои отметки</button></p>
   </details>
 </div>
+
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script id="core">
 /* Чистая логика без DOM: данные, правила, тексты. Тестируется в Node (test/rules.test.js). */
@@ -241,6 +259,8 @@ const Core = (function () {
               s.outcome = pr < 0.18 ? 'problem' : 'ok';
               if (s.outcome === 'problem') s.note = PROBLEMS[pn];
             }
+          } else if (t.kind !== 'talk' && day - t.due > 12) {
+            s.doneDay = t.due + 4 + late; /* организационные задачи закрывают с опозданием, но закрывают */
           }
           return s;
         });
@@ -292,7 +312,7 @@ const Core = (function () {
       else if (st === 'future' && !next) next = s;
     });
     const talk = lastTalk(person);
-    const flag = talk && talk.outcome !== 'ok' ? talk.outcome : null;
+    const flag = talk && talk.outcome !== 'ok' && !talk.resolved ? talk.outcome : null;
     let level = 'ok';
     if (flag === 'leave') level = 'leave';
     else if (overdue.length) level = 'red';
@@ -354,7 +374,9 @@ if (typeof module !== 'undefined') module.exports = Core;
   const base = Core.buildDemo();
   let overrides = {};
   try { overrides = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { overrides = {}; }
-  const ui = { dept: 'Все', all: false, form: null, task: null, copied: null };
+  const ui = { unit: 'all', all: false, form: null, task: null, copied: null, undo: null };
+  try { const u = localStorage.getItem(KEY + '-unit'); if (u && Core.UNITS.some(function (x) { return x.id === u; })) ui.unit = u; } catch (e) { /* без хранилища начинаем со всех */ }
+  const GROUP = { leave: 'Сигнал об уходе', red: 'Сорваны шаги', amber: 'На сегодня', ok: 'Всё по плану' };
   const save = function () { try { localStorage.setItem(KEY, JSON.stringify(overrides)); } catch (e) { /* без хранилища отметки живут до перезагрузки */ } };
   const startDate = function (day) {
     const d = new Date(Date.now() - (day - 1) * 86400000);
@@ -402,8 +424,9 @@ if (typeof module !== 'undefined') module.exports = Core;
         return '<li class="' + k + '" title="' + esc(st.title) + ': ' + w + '"><span aria-hidden="true">' + st.due + '</span><span style="position:absolute;left:-9999px">' + esc(st.title) + ', день ' + st.due + ', ' + w + '</span></li>';
       }).join('') + '</ol>';
     if (s.flag && s.talk) {
-      h += '<p class="note' + (s.flag === 'leave' ? ' crit' : '') + '"><b>' + OUT[s.flag] + '</b> (' + esc(s.talk.title.toLowerCase()) + ', день ' + s.talk.doneDay + ')' + (s.talk.note ? ': ' + esc(s.talk.note) : '') +
-        (s.flag === 'leave' ? ' <span class="muted">Передайте HR сегодня.</span>' : '') + '</p>';
+      h += '<div class="noterow"><p class="note' + (s.flag === 'leave' ? ' crit' : '') + '"><b>' + OUT[s.flag] + '</b> (' + esc(s.talk.title.toLowerCase()) + ', день ' + s.talk.doneDay + ')' + (s.talk.note ? ': ' + esc(s.talk.note) : '') +
+        (s.flag === 'leave' ? ' <span class="muted">Передайте HR сегодня.</span>' : '') + '</p><div class="acts"><button type="button" data-act="resolve" data-id="' + p.id + ':' + s.talk.key + '">' +
+        (s.flag === 'leave' ? 'Вопрос снят, остаётся' : 'Проблема решена') + '</button></div></div>';
     }
     const act = s.overdue.concat(s.today);
     if (act.length) h += '<ul class="todo">' + act.map(function (st) { return stepRow(p, st, Core.stepStatus(st, p.day, p.steps)); }).join('') + '</ul>';
@@ -412,7 +435,9 @@ if (typeof module !== 'undefined') module.exports = Core;
   }
 
   function render() {
-    const people = Core.applyOverrides(base, overrides);
+    const all = Core.applyOverrides(base, overrides);
+    const allRanked = Core.rank(all);
+    const people = all.filter(function (p) { return ui.unit === 'all' || p.unit === ui.unit; });
     const ranked = Core.rank(people);
     const att = ranked.filter(function (x) { return x.s.attention; });
     const overdue = ranked.reduce(function (a, x) { return a + x.s.overdue.length; }, 0);
@@ -420,16 +445,24 @@ if (typeof module !== 'undefined') module.exports = Core;
     $('demo').textContent = 'Демо-данные. Люди и подразделения придуманы. Сегодня ' + new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) + '.';
     $('sum').innerHTML = '<div><b id="s-total">' + people.length + '</b> на испытательном</div><div class="crit"><b id="s-att">' + att.length + '</b> требуют внимания сегодня</div>' +
       '<div class="crit"><b id="s-over">' + overdue + '</b> сорвано шагов</div><div class="crit"><b id="s-leave">' + leave + '</b> ' + Core.plural(leave, 'сигнал', 'сигнала', 'сигналов') + ' об уходе</div>';
-    $('chips').innerHTML = ['Все'].concat(Core.DEPTS).map(function (d) {
-      const n = att.filter(function (x) { return d === 'Все' || x.p.dept === d; }).length;
-      return '<button type="button" data-dept="' + d + '" aria-pressed="' + (ui.dept === d) + '" class="' + (ui.dept === d ? 'on' : '') + '">' + d + ' · ' + n + '</button>';
+    const cnt = function (id) { return allRanked.filter(function (x) { return x.s.attention && (id === 'all' || x.p.unit === id); }).length; };
+    $('unit').innerHTML = '<option value="all">Все подразделения (' + cnt('all') + ')</option>' + Core.UNITS.map(function (u) {
+      return '<option value="' + u.id + '">' + esc(u.name) + ' · ' + esc(u.manager) + ' (' + cnt(u.id) + ')</option>';
     }).join('');
-    const shown = ranked.filter(function (x) { return (ui.dept === 'Все' || x.p.dept === ui.dept) && (ui.all || x.s.attention); });
-    $('list').innerHTML = shown.length ? shown.map(function (x) { return card(x.p, x.s); }).join('')
-      : '<div class="empty">Здесь сегодня никого. Все шаги сделаны, сигналов нет.</div>';
+    $('unit').value = ui.unit;
+    const shown = ranked.filter(function (x) { return ui.all || x.s.attention; });
+    let last = null;
+    $('list').innerHTML = shown.length ? shown.map(function (x) {
+      const head = x.s.level !== last ? '<h2 class="grp">' + GROUP[x.s.level] + '</h2>' : '';
+      last = x.s.level;
+      return head + card(x.p, x.s);
+    }).join('') : '<div class="empty">Здесь сегодня никого. Все шаги сделаны, сигналов нет.</div>';
+    const toast = $('toast');
+    toast.hidden = !ui.undo;
+    toast.innerHTML = ui.undo ? '<span>' + esc(ui.undo.text) + '</span><button type="button" data-act="undo">Отменить</button><button type="button" data-act="hide" aria-label="Закрыть">×</button>' : '';
     $('units').innerHTML = '<thead><tr><th>Подразделение</th><th>Руководитель</th><th class="n">Новичков</th><th class="n">Шагов в срок</th><th class="n">Сорвано сейчас</th></tr></thead><tbody>' +
-      Core.unitStats(people).map(function (u) {
-        return '<tr><td>' + esc(u.name) + '</td><td>' + esc(u.manager) + '</td><td class="n">' + u.people + '</td><td class="n' + (u.share != null && u.share < 75 ? ' bad' : '') + '">' +
+      Core.unitStats(all).map(function (u) {
+        return '<tr' + (u.id === ui.unit ? ' class="sel"' : '') + '><td>' + esc(u.name) + '</td><td>' + esc(u.manager) + '</td><td class="n">' + u.people + '</td><td class="n' + (u.share != null && u.share < 75 ? ' bad' : '') + '">' +
           (u.share == null ? 'нет данных' : u.share + '% <span class="muted">(' + u.onTime + ' из ' + u.due + ')</span>') + '</td><td class="n' + (u.overdue ? ' bad' : '') + '">' + u.overdue + '</td></tr>';
       }).join('') + '</tbody>';
   }
@@ -439,23 +472,32 @@ if (typeof module !== 'undefined') module.exports = Core;
     const p = Core.applyOverrides(base, overrides).filter(function (x) { return x.id === parts[0]; })[0];
     return { p: p, s: p.steps.filter(function (x) { return x.key === parts[1]; })[0] };
   }
-  function mark(id, data) {
+  function setStep(id, data, label) {
     const parts = id.split(':'), f = find(id);
     overrides[parts[0]] = overrides[parts[0]] || {};
-    overrides[parts[0]][parts[1]] = Object.assign({ doneDay: f.p.day, outcome: null, note: '' }, data || {});
+    ui.undo = { pid: parts[0], key: parts[1], prev: overrides[parts[0]][parts[1]], text: label + ': ' + f.p.name };
+    overrides[parts[0]][parts[1]] = Object.assign({ doneDay: f.s.doneDay != null ? f.s.doneDay : f.p.day, outcome: f.s.outcome, note: f.s.note }, data || {});
     save();
+  }
+  function undo() {
+    const u = ui.undo;
+    if (!u) return;
+    if (u.prev === undefined) delete overrides[u.pid][u.key]; else overrides[u.pid][u.key] = u.prev;
+    ui.undo = null; save();
   }
 
   document.addEventListener('click', function (e) {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.dept) { ui.dept = b.dataset.dept; ui.form = ui.task = null; return render(); }
-    if (b.id === 'reset') { overrides = {}; save(); ui.form = ui.task = null; return render(); }
+    if (b.id === 'reset') { overrides = {}; save(); ui.form = ui.task = ui.undo = null; return render(); }
     const act = b.dataset.act, id = b.dataset.id;
     if (act === 'form') { ui.form = id; ui.task = null; render(); const t = document.getElementById('n-' + id); if (t) t.focus(); return; }
     if (act === 'task') { ui.task = id; ui.form = null; ui.copied = null; return render(); }
     if (act === 'cancel') { ui.form = ui.task = null; return render(); }
-    if (act === 'done') { mark(id); return render(); }
+    if (act === 'done') { setStep(id, null, 'Отмечено сделанным'); return render(); }
+    if (act === 'resolve') { setStep(id, { resolved: true }, 'Вопрос закрыт'); return render(); }
+    if (act === 'undo') { undo(); return render(); }
+    if (act === 'hide') { ui.undo = null; return render(); }
     if (act === 'copy') {
       const ta = document.getElementById('t-' + id);
       const ok = function () { ui.copied = id; render(); };
@@ -468,8 +510,13 @@ if (typeof module !== 'undefined') module.exports = Core;
     if (!f) return;
     e.preventDefault();
     const fd = new FormData(f);
-    mark(f.dataset.id, { outcome: fd.get('outcome'), note: String(fd.get('note') || '').trim().slice(0, 400) });
+    setStep(f.dataset.id, { outcome: fd.get('outcome'), note: String(fd.get('note') || '').trim().slice(0, 400) }, 'Разговор записан');
     ui.form = null; render();
+  });
+  $('unit').addEventListener('change', function (e) {
+    ui.unit = e.target.value; ui.form = ui.task = null;
+    try { localStorage.setItem(KEY + '-unit', ui.unit); } catch (err) { /* выбор не запомнится */ }
+    render();
   });
   $('showall').addEventListener('change', function (e) { ui.all = e.target.checked; render(); });
   render();

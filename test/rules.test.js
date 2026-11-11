@@ -48,6 +48,13 @@ test('учитывается итог только последнего разг
   assert.strictEqual(Core.summarize(person(20, [old, fresh])).level, 'leave');
 });
 
+test('закрытая проблема больше не держит человека в списке', () => {
+  const talk = step('a', 3, 'talk', { doneDay: 3, outcome: 'problem' });
+  assert.strictEqual(Core.summarize(person(8, [talk])).level, 'amber');
+  talk.resolved = true;
+  assert.strictEqual(Core.summarize(person(8, [talk])).attention, false);
+});
+
 test('сортировка: уход, затем больше сорванных, затем кто работает меньше', () => {
   const a = Object.assign(person(40, [step('a', 3, 'talk')]), { id: 'a' });
   const b = Object.assign(person(20, [step('a', 3, 'train'), step('b', 14, 'talk')]), { id: 'b' });
@@ -75,6 +82,7 @@ test('демо-набор: 27 человек, все внутри 90 дней, �
   });
   assert.strictEqual(new Set(p1.map(p => p.id)).size, 27);
   assert.strictEqual(p1.filter(p => Core.summarize(p).flag === 'leave').length, 1);
+  p1.forEach(p => Core.summarize(p).overdue.forEach(s => assert.ok(s.kind === 'talk' || p.day - s.due <= 12, 'в демо нет организационных задач, висящих месяцами')));
 });
 
 test('статистика по подразделениям сходится со списком', () => {
