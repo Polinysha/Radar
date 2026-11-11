@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Радар новичков</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* Раскладка: одна колонка-список «с кем говорить сегодня», под ней таблица по подразделениям и правила. */
+:root{
+  --bg:#F2F4F3; --surface:#FFFFFF; --ink:#13211E; --muted:#5C6B67; --line:#D9DFDC;
+  --accent:#0B6B5B; --accent-ink:#FFFFFF;
+  --crit:#B93226; --crit-bg:#FBE9E6; --warn:#9A6408; --warn-bg:#FBF1DC; --good:#2B7A4B; --good-bg:#E4F2E9;
+  --display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#101816; --surface:#18221F; --ink:#E7EEEB; --muted:#9AA9A4; --line:#2B3834;
+    --accent:#4FC2AC; --accent-ink:#06211C;
+    --crit:#F0857A; --crit-bg:#3A1B17; --warn:#E3B45A; --warn-bg:#35290F; --good:#74C795; --good-bg:#16301F;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#101816; --surface:#18221F; --ink:#E7EEEB; --muted:#9AA9A4; --line:#2B3834;
+  --accent:#4FC2AC; --accent-ink:#06211C;
+  --crit:#F0857A; --crit-bg:#3A1B17; --warn:#E3B45A; --warn-bg:#35290F; --good:#74C795; --good-bg:#16301F;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.45 var(--body)}
+.wrap{max-width:980px;margin:0 auto;padding:28px 16px 56px;display:flex;flex-direction:column;gap:24px}
+h1{font:700 26px/1.15 var(--display);margin:0;text-wrap:balance}
+h2{font:500 15px/1.2 var(--display);margin:0;text-wrap:balance}
+h3{font:600 17px/1.25 var(--body);margin:0}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13.5px}
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.top .lead{max-width:60ch;color:var(--muted);margin-top:6px}
+.demo{font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:6px 10px}
+.sum{display:flex;flex-wrap:wrap;gap:8px 28px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.sum div{display:flex;align-items:baseline;gap:8px}
+.sum b{font:700 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.sum .crit b{color:var(--crit)}
+.bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+button{font:500 14px/1 var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.on,button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.link{border:0;background:none;padding:4px 0;color:var(--accent);text-decoration:underline}
+label.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.list{display:flex;flex-direction:column;gap:10px}
+.p{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.p.lv-leave,.p.lv-red{border-left-color:var(--crit)}
+.p.lv-amber{border-left-color:var(--warn)}
+.p.lv-ok{border-left-color:var(--good)}
+.phead{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;justify-content:space-between}
+.pname{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.tag{font-size:12.5px;font-weight:600;border-radius:99px;padding:3px 9px;white-space:nowrap}
+.tag.crit{background:var(--crit-bg);color:var(--crit)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.tag.good{background:var(--good-bg);color:var(--good)}
+.day{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.strip{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
+.strip li{min-width:30px;height:24px;padding:0 5px;border-radius:5px;font:600 12px/24px var(--body);text-align:center;font-variant-numeric:tabular-nums;border:1px solid var(--line);color:var(--muted)}
+.strip .done{background:var(--good-bg);color:var(--good);border-color:transparent}
+.strip .overdue{background:var(--crit);color:#fff;border-color:transparent}
+.strip .skipped{border-color:var(--crit);color:var(--crit);text-decoration:line-through}
+.strip .today{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+.todo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.todo>li{border-top:1px solid var(--line);padding-top:8px;display:flex;flex-direction:column;gap:8px}
+.trow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between}
+.trow .what{flex:1 1 320px}
+.trow .acts{display:flex;flex-wrap:wrap;gap:6px}
+.note{border-left:3px solid var(--warn);padding:2px 0 2px 10px;font-size:14.5px}
+.note.crit{border-left-color:var(--crit)}
+.form{background:var(--bg);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.form ul{margin:0;padding-left:18px}
+.form fieldset{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 16px}
+.form legend{padding:0;margin-bottom:6px;font-weight:600;font-size:14px}
+textarea{width:100%;min-height:64px;font:400 14.5px/1.4 var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:8px}
+textarea[readonly]{min-height:150px}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-weight:600;color:var(--muted);font-size:13px}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+td.bad{color:var(--crit);font-weight:700}
+.rules{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.rules summary{cursor:pointer;font-weight:600}
+.rules ul{margin:10px 0 0;padding-left:18px;max-width:70ch;display:flex;flex-direction:column;gap:6px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted);align-items:center}
+.legend .strip li{min-width:22px;height:18px;line-height:18px;font-size:11px}
+.legend span{display:flex;gap:6px;align-items:center}
+.empty{padding:22px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:10px}
+.sec{display:flex;flex-direction:column;gap:10px}
+@media (max-width:480px){h1{font-size:21px}.sum b{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Радар новичков</h1>
+      <p class="lead">Первые 90 дней каждого нового сотрудника. Список отвечает на один вопрос руководителя: с кем из новичков нужно поговорить сегодня и о чём.</p>
+    </div>
+    <div class="demo" id="demo"></div>
+  </header>
+
+  <section class="sum" id="sum" aria-label="Сводка"></section>
+
+  <section class="sec">
+    <div class="bar">
+      <div class="chips" id="chips" role="group" aria-label="Подразделение"></div>
+      <label class="check" for="showall"><input type="checkbox" id="showall"> Показать и тех, у кого всё по плану</label>
+    </div>
+    <div class="legend" aria-hidden="true">
+      <span>Шаги адаптации, число — день срока:</span>
+      <span><ol class="strip"><li class="done">3</li></ol> сделан</span>
+      <span><ol class="strip"><li class="overdue">14</li></ol> сорван</span>
+      <span><ol class="strip"><li class="skipped">3</li></ol> пропущен</span>
+      <span><ol class="strip"><li class="today">30</li></ol> сегодня</span>
+      <span><ol class="strip"><li>60</li></ol> впереди</span>
+    </div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section class="sec">
+    <h2>Где адаптация рвётся</h2>
+    <p class="muted small">Доля шагов, сделанных в срок, по руководителям. Показывает, где проблема системная, а не в одном человеке.</p>
+    <div class="tablewrap"><table id="units"></table></div>
+  </section>
+
+  <details class="rules">
+    <summary>Как это считается</summary>
+    <ul>
+      <li>У каждого новичка есть набор шагов со сроком в днях от выхода на работу: общие для всех и свои для склада, магазинов, отдела продаж и офиса. В жизни это пункты задачи приёма в Битрикс24.</li>
+      <li>Шаг сорван, если его срок прошёл, а отметки о выполнении нет. Новичок с сорванным шагом попадает в список.</li>
+      <li>Если пропущено несколько разговоров подряд, в список попадает только последний: одной встречи достаточно. Старые остаются в статистике руководителя как пропущенные.</li>
+      <li>Сортировка: сначала сигналы об уходе, затем те, у кого сорвано больше шагов, при равенстве выше тот, кто работает меньше.</li>
+      <li>Разговор закрывается итогом: всё в порядке, есть проблема или думает об уходе. Последний итог виден в карточке, сигнал об уходе поднимает человека наверх.</li>
+      <li>Оценки вероятности ухода здесь нет намеренно: на ста приёмах в год её не на чем обучить. Правила простые, и руководитель видит причину каждой строки.</li>
+      <li>Дни считаются календарными. Отметки хранятся в этом браузере.</li>
+    </ul>
+    <p style="margin-top:12px"><button type="button" id="reset">Сбросить мои отметки</button></p>
+  </details>
+</div>
+
+<script id="core">
+/* Чистая логика без DOM: данные, правила, тексты. Тестируется в Node (test/rules.test.js). */
+const Core = (function () {
+  const PROBATION = 90;
+
+  function rng(seed) {
+    return function () {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  const COMMON = [
+    { key: 'ready', due: 1, kind: 'setup', who: 'HR', title: 'Доступы, форма и рабочее место готовы к первому дню' },
+    { key: 'mentor', due: 1, kind: 'setup', who: 'Руководитель', title: 'Назначен наставник, новичок с ним познакомлен' },
+    { key: 'talk3', due: 3, kind: 'talk', who: 'Руководитель', title: 'Разговор на третий день',
+      ask: ['Что в первые дни оказалось не таким, как обещали на собеседовании?', 'Чего не хватило в первый день?', 'К кому идёте, когда что-то непонятно?'] },
+    { key: 'talk14', due: 14, kind: 'talk', who: 'Руководитель', title: 'Встреча на второй неделе',
+      ask: ['Как вам график и нагрузка на деле?', 'Что до сих пор непонятно в работе?', 'Что мешает делать работу хорошо?'] },
+    { key: 'talk30', due: 30, kind: 'talk', who: 'Руководитель', title: 'Итоги первого месяца',
+      ask: ['Что получается лучше всего, а что пока нет?', 'Совпала ли зарплата за месяц с ожиданиями?', 'Что бы вы поменяли в том, как вас вводили в работу?'] },
+    { key: 'talk60', due: 60, kind: 'talk', who: 'Руководитель', title: 'Разговор на втором месяце',
+      ask: ['Чему хотите научиться дальше?', 'Видите ли себя здесь через полгода?', 'Что может заставить вас уйти?'] },
+    { key: 'decision', due: 80, kind: 'talk', who: 'Руководитель', title: 'Решение по испытательному сказано заранее',
+      ask: ['Сообщите решение и что будет после 90-го дня.', 'Спросите, остались ли вопросы по условиям.'] }
+  ];
+  const BY_DEPT = {
+    'Склад': [
+      { key: 'safety', due: 2, kind: 'train', who: 'Наставник', title: 'Инструктаж по охране труда и работа с ТСД' },
+      { key: 'norm', due: 10, kind: 'train', who: 'Руководитель', title: 'Норма сборки заказов объяснена и согласована' }
+    ],
+    'Магазины': [
+      { key: 'cash', due: 5, kind: 'train', who: 'Наставник', title: 'Обучение кассе и возвратам' },
+      { key: 'goods', due: 10, kind: 'train', who: 'Наставник', title: 'Товарный тренинг: категории и подбор размера' }
+    ],
+    'Отдел продаж': [
+      { key: 'crm', due: 5, kind: 'train', who: 'Наставник', title: 'Обучение CRM и прайс-листам' },
+      { key: 'deal', due: 30, kind: 'train', who: 'Руководитель', title: 'Первая своя сделка разобрана с руководителем' }
+    ],
+    'Офис': [
+      { key: 'plan', due: 5, kind: 'train', who: 'Руководитель', title: 'План задач на первый месяц согласован' }
+    ]
+  };
+  const DEPTS = Object.keys(BY_DEPT);
+
+  /* Придуманные подразделения. talk — доля разговоров, которые руководитель проводит. */
+  const UNITS = [
+    { id: 'wh-a', dept: 'Склад', name: 'Склад, смена А', manager: 'Гришин Олег', talk: 0.92, n: 5, roles: ['Комплектовщик', 'Кладовщик', 'Водитель погрузчика'] },
+    { id: 'wh-b', dept: 'Склад', name: 'Склад, смена Б', manager: 'Лаптева Ирина', talk: 0.45, n: 6, roles: ['Комплектовщик', 'Кладовщик', 'Упаковщик'] },
+    { id: 'sh-1', dept: 'Магазины', name: 'Магазин на Садовой', manager: 'Белова Марина', talk: 0.93, n: 4, roles: ['Продавец-консультант', 'Кассир'] },
+    { id: 'sh-2', dept: 'Магазины', name: 'Магазин в ТЦ «Меридиан»', manager: 'Назаров Тимур', talk: 0.6, n: 5, roles: ['Продавец-консультант', 'Кассир', 'Администратор зала'] },
+    { id: 'sales', dept: 'Отдел продаж', name: 'Оптовые продажи', manager: 'Савельев Денис', talk: 0.88, n: 4, roles: ['Менеджер оптовых продаж'] },
+    { id: 'office', dept: 'Офис', name: 'Офис', manager: 'Орлова Наталья', talk: 0.93, n: 3, roles: ['Бухгалтер', 'Контент-менеджер', 'Специалист поддержки'] }
+  ];
+  const M_NAMES = ['Артём', 'Кирилл', 'Роман', 'Егор', 'Максим', 'Илья', 'Даниил', 'Степан', 'Глеб', 'Матвей'];
+  const F_NAMES = ['Алина', 'Вера', 'Дарья', 'Ксения', 'Милана', 'Ольга', 'Софья', 'Таисия', 'Юлия', 'Яна'];
+  const SURNAMES = ['Котов', 'Жуков', 'Тарасов', 'Фролов', 'Зимин', 'Крылов', 'Сомов', 'Рябов', 'Панин', 'Ершов', 'Кузин', 'Лосев', 'Шилов', 'Чернов', 'Дронов', 'Быков', 'Сухов', 'Юдин', 'Агеев', 'Блинов', 'Вершин', 'Горин', 'Демин', 'Ефимов', 'Зотов', 'Исаев', 'Климов'];
+  const PROBLEMS = ['Вторую неделю график без выходных, хотя договаривались на 5/2.', 'Наставник в отпуске, спросить не у кого.', 'Не понимает, из чего складывается премия.', 'Не хватает доступа к рабочей программе, работает с чужого входа.'];
+  const LEAVE_NOTE = 'Обещали график 2/2, по факту ставят в дополнительные смены. Говорит, что смотрит вакансии.';
+
+  function stepsFor(dept) {
+    return COMMON.concat(BY_DEPT[dept] || []).slice().sort(function (a, b) { return a.due - b.due; });
+  }
+
+  /* Демо-набор: всегда одни и те же люди, день работы у каждого фиксирован. */
+  function buildDemo(seed) {
+    const r = rng(seed || 1331);
+    const people = [];
+    let i = 0;
+    UNITS.forEach(function (u) {
+      for (let k = 0; k < u.n; k++) {
+        const female = r() < 0.5;
+        const sur = SURNAMES[i % SURNAMES.length] + (female ? 'а' : '');
+        const first = (female ? F_NAMES : M_NAMES)[Math.floor(r() * 10)];
+        const day = i < 3 ? [2, 4, 1][i] : 1 + Math.floor(r() * 88);
+        const steps = stepsFor(u.dept).map(function (t) {
+          const s = Object.assign({}, t, { doneDay: null, outcome: null, note: '' });
+          if (t.due > day) return s;
+          const p = t.kind === 'talk' ? u.talk : 0.97;
+          const roll = r(), late = Math.floor(r() * 3), pr = r(), pn = Math.floor(r() * PROBLEMS.length);
+          if (t.due === day ? roll < p * 0.3 : roll < p) {
+            s.doneDay = Math.min(day, t.due + (r() < 0.85 ? 0 : late));
+            if (t.kind === 'talk') {
+              s.outcome = pr < 0.18 ? 'problem' : 'ok';
+              if (s.outcome === 'problem') s.note = PROBLEMS[pn];
+            }
+          }
+          return s;
+        });
+        people.push({ id: 'p' + i, name: sur + ' ' + first, role: u.roles[k % u.roles.length], unit: u.id, unitName: u.name, dept: u.dept, manager: u.manager, day: day, steps: steps });
+        i++;
+      }
+    });
+    /* Один заранее заданный сигнал об уходе, чтобы состояние было видно сразу. */
+    const cand = people.filter(function (p) { return p.day > 16 && p.day < 60; })[0];
+    if (cand) {
+      const t = cand.steps.filter(function (s) { return s.key === 'talk14'; })[0];
+      t.doneDay = 14; t.outcome = 'leave'; t.note = LEAVE_NOTE;
+    }
+    return people;
+  }
+
+  /* overrides: { personId: { stepKey: { doneDay, outcome, note } } } */
+  function applyOverrides(people, overrides) {
+    return people.map(function (p) {
+      const o = (overrides && overrides[p.id]) || {};
+      return Object.assign({}, p, { steps: p.steps.map(function (s) { return o[s.key] ? Object.assign({}, s, o[s.key]) : s; }) });
+    });
+  }
+
+  /* steps — все шаги человека. Пропущенный разговор считается закрытым («skipped»),
+     если уже подошёл срок более позднего разговора: одной встречи достаточно. */
+  function stepStatus(step, day, steps) {
+    if (step.doneDay != null) return 'done';
+    if (step.due < day) {
+      if (step.kind === 'talk' && steps && steps.some(function (o) { return o.kind === 'talk' && o.due > step.due && o.due <= day; })) return 'skipped';
+      return 'overdue';
+    }
+    if (step.due === day) return 'today';
+    return 'future';
+  }
+
+  function lastTalk(person) {
+    return person.steps.filter(function (s) { return s.kind === 'talk' && s.doneDay != null && s.outcome; })
+      .sort(function (a, b) { return b.doneDay - a.doneDay || b.due - a.due; })[0] || null;
+  }
+
+  function summarize(person) {
+    const overdue = [], today = [];
+    let next = null;
+    person.steps.forEach(function (s) {
+      const st = stepStatus(s, person.day, person.steps);
+      if (st === 'overdue') overdue.push(s);
+      else if (st === 'today') today.push(s);
+      else if (st === 'future' && !next) next = s;
+    });
+    const talk = lastTalk(person);
+    const flag = talk && talk.outcome !== 'ok' ? talk.outcome : null;
+    let level = 'ok';
+    if (flag === 'leave') level = 'leave';
+    else if (overdue.length) level = 'red';
+    else if (today.length || flag === 'problem') level = 'amber';
+    return { overdue: overdue, today: today, next: next, talk: talk, flag: flag, level: level, attention: level !== 'ok' };
+  }
+
+  const ORDER = { leave: 0, red: 1, amber: 2, ok: 3 };
+  function rank(people) {
+    return people.map(function (p) { return { p: p, s: summarize(p) }; }).sort(function (a, b) {
+      return ORDER[a.s.level] - ORDER[b.s.level] || b.s.overdue.length - a.s.overdue.length || a.p.day - b.p.day;
+    });
+  }
+
+  function unitStats(people) {
+    return UNITS.map(function (u) {
+      const mine = people.filter(function (p) { return p.unit === u.id; });
+      let due = 0, onTime = 0, overdue = 0;
+      mine.forEach(function (p) {
+        p.steps.forEach(function (s) {
+          const st = stepStatus(s, p.day, p.steps);
+          if (st !== 'future' && st !== 'today') { due++; if (st === 'done' && s.doneDay <= s.due) onTime++; }
+          if (st === 'overdue') overdue++;
+        });
+      });
+      return { id: u.id, name: u.name, manager: u.manager, people: mine.length, due: due, onTime: onTime, overdue: overdue, share: due ? Math.round(onTime / due * 100) : null };
+    });
+  }
+
+  function plural(n, one, few, many) {
+    const a = n % 10, b = n % 100;
+    return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many;
+  }
+
+  function taskText(person, step) {
+    const late = person.day - step.due;
+    const lines = [
+      'Новичок: ' + person.name + ', ' + person.role.toLowerCase() + ', ' + person.unitName + '.',
+      'Сегодня ' + person.day + '-й день из ' + PROBATION + '.',
+      'Что сделать: ' + step.title + ' (срок был на ' + step.due + '-й день' + (late > 0 ? ', просрочено на ' + late + ' ' + plural(late, 'день', 'дня', 'дней') : '') + ').',
+      'Кто делает: ' + (step.who === 'Руководитель' ? person.manager : step.who) + '. Срок: сегодня.'
+    ];
+    if (step.ask) lines.push('О чём спросить:', step.ask.map(function (q) { return '— ' + q; }).join('\n'));
+    if (step.kind === 'talk') lines.push('После разговора отметьте итог в «Радаре новичков»: всё в порядке, есть проблема или думает об уходе.');
+    return lines.join('\n');
+  }
+
+  return { PROBATION: PROBATION, DEPTS: DEPTS, UNITS: UNITS, stepsFor: stepsFor, buildDemo: buildDemo, applyOverrides: applyOverrides,
+    stepStatus: stepStatus, summarize: summarize, rank: rank, unitStats: unitStats, plural: plural, taskText: taskText };
+})();
+if (typeof module !== 'undefined') module.exports = Core;
+</script>
+
+<script>
+(function () {
+  const KEY = 'novichok-radar-v1';
+  const $ = function (id) { return document.getElementById(id); };
+  const esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  const base = Core.buildDemo();
+  let overrides = {};
+  try { overrides = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { overrides = {}; }
+  const ui = { dept: 'Все', all: false, form: null, task: null, copied: null };
+  const save = function () { try { localStorage.setItem(KEY, JSON.stringify(overrides)); } catch (e) { /* без хранилища отметки живут до перезагрузки */ } };
+  const startDate = function (day) {
+    const d = new Date(Date.now() - (day - 1) * 86400000);
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  };
+  const OUT = { ok: 'Всё в порядке', problem: 'Есть проблема', leave: 'Думает об уходе' };
+
+  function stepRow(p, s, st) {
+    const id = p.id + ':' + s.key, late = p.day - s.due;
+    const when = st === 'overdue'
+      ? '<span class="tag crit">просрочено на ' + late + ' ' + Core.plural(late, 'день', 'дня', 'дней') + '</span>'
+      : '<span class="tag warn">срок сегодня</span>';
+    let h = '<li><div class="trow"><div class="what">' + when + ' <b>' + esc(s.title) + '</b> <span class="muted small">· ' + esc(s.who === 'Руководитель' ? p.manager : s.who) + '</span></div><div class="acts">';
+    h += s.kind === 'talk'
+      ? '<button type="button" class="primary" data-act="form" data-id="' + id + '">Записать разговор</button>'
+      : '<button type="button" class="primary" data-act="done" data-id="' + id + '">Отметить сделанным</button>';
+    h += '<button type="button" data-act="task" data-id="' + id + '">Текст задачи для Битрикс24</button></div></div>';
+    if (ui.form === id) {
+      h += '<form class="form" data-id="' + id + '"><div><b>О чём спросить</b><ul>' + s.ask.map(function (q) { return '<li>' + esc(q) + '</li>'; }).join('') + '</ul></div>' +
+        '<fieldset><legend>Итог разговора</legend>' + Object.keys(OUT).map(function (k, i) {
+          return '<label class="check" for="o-' + id + '-' + k + '"><input type="radio" name="outcome" id="o-' + id + '-' + k + '" value="' + k + '"' + (i === 0 ? ' checked' : '') + '> ' + OUT[k] + '</label>';
+        }).join('') + '</fieldset>' +
+        '<label for="n-' + id + '" class="small muted">Что сказал новичок, одной-двумя фразами</label><textarea id="n-' + id + '" name="note"></textarea>' +
+        '<div class="acts"><button type="submit" class="primary">Сохранить</button><button type="button" data-act="cancel">Отмена</button></div></form>';
+    }
+    if (ui.task === id) {
+      h += '<div class="form"><textarea readonly id="t-' + id + '" aria-label="Текст задачи">' + esc(Core.taskText(p, s)) + '</textarea>' +
+        '<div class="acts"><button type="button" class="primary" data-act="copy" data-id="' + id + '">' + (ui.copied === id ? 'Скопировано' : 'Скопировать') + '</button><button type="button" data-act="cancel">Закрыть</button></div></div>';
+    }
+    return h + '</li>';
+  }
+
+  function card(p, s) {
+    const tags = [];
+    if (s.flag === 'leave') tags.push('<span class="tag crit">думает об уходе</span>');
+    if (s.overdue.length) tags.push('<span class="tag crit">сорвано шагов: ' + s.overdue.length + '</span>');
+    if (s.flag === 'problem') tags.push('<span class="tag warn">есть проблема</span>');
+    if (!s.overdue.length && s.today.length) tags.push('<span class="tag warn">шаг сегодня</span>');
+    if (s.level === 'ok') tags.push('<span class="tag good">по плану</span>');
+    let h = '<article class="p lv-' + s.level + '" data-pid="' + p.id + '"><div class="phead"><div class="pname"><h3>' + esc(p.name) + '</h3>' + tags.join('') + '</div>' +
+      '<div class="day">день ' + p.day + ' из ' + Core.PROBATION + '</div></div>' +
+      '<div class="muted small">' + esc(p.role) + ' · ' + esc(p.unitName) + ' · руководитель ' + esc(p.manager) + ' · вышел ' + startDate(p.day) + '</div>' +
+      '<ol class="strip" aria-label="Шаги адаптации">' + p.steps.map(function (st) {
+        const k = Core.stepStatus(st, p.day, p.steps), w = { done: 'сделан', overdue: 'сорван', skipped: 'пропущен', today: 'сегодня', future: 'впереди' }[k];
+        return '<li class="' + k + '" title="' + esc(st.title) + ': ' + w + '"><span aria-hidden="true">' + st.due + '</span><span style="position:absolute;left:-9999px">' + esc(st.title) + ', день ' + st.due + ', ' + w + '</span></li>';
+      }).join('') + '</ol>';
+    if (s.flag && s.talk) {
+      h += '<p class="note' + (s.flag === 'leave' ? ' crit' : '') + '"><b>' + OUT[s.flag] + '</b> (' + esc(s.talk.title.toLowerCase()) + ', день ' + s.talk.doneDay + ')' + (s.talk.note ? ': ' + esc(s.talk.note) : '') +
+        (s.flag === 'leave' ? ' <span class="muted">Передайте HR сегодня.</span>' : '') + '</p>';
+    }
+    const act = s.overdue.concat(s.today);
+    if (act.length) h += '<ul class="todo">' + act.map(function (st) { return stepRow(p, st, Core.stepStatus(st, p.day, p.steps)); }).join('') + '</ul>';
+    else if (s.next) { const d = s.next.due - p.day; h += '<p class="muted small">Следующий шаг через ' + d + ' ' + Core.plural(d, 'день', 'дня', 'дней') + ': ' + esc(s.next.title.toLowerCase()) + '.</p>'; }
+    return h + '</article>';
+  }
+
+  function render() {
+    const people = Core.applyOverrides(base, overrides);
+    const ranked = Core.rank(people);
+    const att = ranked.filter(function (x) { return x.s.attention; });
+    const overdue = ranked.reduce(function (a, x) { return a + x.s.overdue.length; }, 0);
+    const leave = ranked.filter(function (x) { return x.s.flag === 'leave'; }).length;
+    $('demo').textContent = 'Демо-данные. Люди и подразделения придуманы. Сегодня ' + new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) + '.';
+    $('sum').innerHTML = '<div><b id="s-total">' + people.length + '</b> на испытательном</div><div class="crit"><b id="s-att">' + att.length + '</b> требуют внимания сегодня</div>' +
+      '<div class="crit"><b id="s-over">' + overdue + '</b> сорвано шагов</div><div class="crit"><b id="s-leave">' + leave + '</b> ' + Core.plural(leave, 'сигнал', 'сигнала', 'сигналов') + ' об уходе</div>';
+    $('chips').innerHTML = ['Все'].concat(Core.DEPTS).map(function (d) {
+      const n = att.filter(function (x) { return d === 'Все' || x.p.dept === d; }).length;
+      return '<button type="button" data-dept="' + d + '" aria-pressed="' + (ui.dept === d) + '" class="' + (ui.dept === d ? 'on' : '') + '">' + d + ' · ' + n + '</button>';
+    }).join('');
+    const shown = ranked.filter(function (x) { return (ui.dept === 'Все' || x.p.dept === ui.dept) && (ui.all || x.s.attention); });
+    $('list').innerHTML = shown.length ? shown.map(function (x) { return card(x.p, x.s); }).join('')
+      : '<div class="empty">Здесь сегодня никого. Все шаги сделаны, сигналов нет.</div>';
+    $('units').innerHTML = '<thead><tr><th>Подразделение</th><th>Руководитель</th><th class="n">Новичков</th><th class="n">Шагов в срок</th><th class="n">Сорвано сейчас</th></tr></thead><tbody>' +
+      Core.unitStats(people).map(function (u) {
+        return '<tr><td>' + esc(u.name) + '</td><td>' + esc(u.manager) + '</td><td class="n">' + u.people + '</td><td class="n' + (u.share != null && u.share < 75 ? ' bad' : '') + '">' +
+          (u.share == null ? 'нет данных' : u.share + '% <span class="muted">(' + u.onTime + ' из ' + u.due + ')</span>') + '</td><td class="n' + (u.overdue ? ' bad' : '') + '">' + u.overdue + '</td></tr>';
+      }).join('') + '</tbody>';
+  }
+
+  function find(id) {
+    const parts = id.split(':');
+    const p = Core.applyOverrides(base, overrides).filter(function (x) { return x.id === parts[0]; })[0];
+    return { p: p, s: p.steps.filter(function (x) { return x.key === parts[1]; })[0] };
+  }
+  function mark(id, data) {
+    const parts = id.split(':'), f = find(id);
+    overrides[parts[0]] = overrides[parts[0]] || {};
+    overrides[parts[0]][parts[1]] = Object.assign({ doneDay: f.p.day, outcome: null, note: '' }, data || {});
+    save();
+  }
+
+  document.addEventListener('click', function (e) {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.dept) { ui.dept = b.dataset.dept; ui.form = ui.task = null; return render(); }
+    if (b.id === 'reset') { overrides = {}; save(); ui.form = ui.task = null; return render(); }
+    const act = b.dataset.act, id = b.dataset.id;
+    if (act === 'form') { ui.form = id; ui.task = null; render(); const t = document.getElementById('n-' + id); if (t) t.focus(); return; }
+    if (act === 'task') { ui.task = id; ui.form = null; ui.copied = null; return render(); }
+    if (act === 'cancel') { ui.form = ui.task = null; return render(); }
+    if (act === 'done') { mark(id); return render(); }
+    if (act === 'copy') {
+      const ta = document.getElementById('t-' + id);
+      const ok = function () { ui.copied = id; render(); };
+      const manual = function () { ta.focus(); ta.select(); };
+      try { navigator.clipboard.writeText(ta.value).then(ok, manual); } catch (err) { manual(); }
+    }
+  });
+  document.addEventListener('submit', function (e) {
+    const f = e.target.closest('form.form');
+    if (!f) return;
+    e.preventDefault();
+    const fd = new FormData(f);
+    mark(f.dataset.id, { outcome: fd.get('outcome'), note: String(fd.get('note') || '').trim().slice(0, 400) });
+    ui.form = null; render();
+  });
+  $('showall').addEventListener('change', function (e) { ui.all = e.target.checked; render(); });
+  render();
+})();
+</script>
+</body>
+</html>
